@@ -17,10 +17,18 @@ import numpy as np
 import numpy.linalg as LA
 from scipy.integrate import solve_ivp
 import matplotlib.pyplot as plt
+import control
 
+
+# ## Simulate random stable system
 
 # +
-def simulate_system(A, B, t_span, ref, Ts, y0=np.zeros(2)):
+def simulate_system(A, B, t_span, ref, Ts, y0=None):
+    N = A.shape[0]
+    
+    if y0 is None:
+        y0 = np.zeros(N)
+        
     # Form linear system x_dot = Ax + Bu
     def eqn(t,y,ref):
         u = ref(t)
@@ -38,85 +46,48 @@ def simulate_system(A, B, t_span, ref, Ts, y0=np.zeros(2)):
 def ref_sine(t):
     return ( np.sin(t) + np.sin(3*t) ).reshape((-1))
 
+
+# +
 Ts = 0.01
-A = np.array([[0, 1],[-0.2, -0.4]])
-B = np.array([[-0.2],[1]])
+N = 5
+
+# Generate random stable system
+A = np.random.rand(N,N)
+A = -A @ A.T
+B = np.random.rand(N,1)
 
 t, y_true, u_true = simulate_system(A, B, [0,20], ref_sine, Ts)
 
 # Add noise
-y = y_true + np.array([[0.5], [0.2]]) * np.random.randn(*y_true.shape)
+y = y_true + np.random.randn(*y_true.shape) * (0.05 * np.random.rand(N,1) + 0.05)
 u = u_true + 0.1 * np.random.randn(*u_true.shape)
 
-# Unpack
-pos = y[0,:].T
-vel = y[1,:].T
+
+# fig, ax = plt.subplots(N+1, figsize=(12,9))
+# fig.tight_layout()
+# for i in range(N):
+#     ax[i].plot(y[i,:])
+#     ax[i].grid()
+
+# ax[N].plot(u)
+# ax[N].grid()
 # -
 
-_,ax = plt.subplots(3)
-ax[0].plot(pos)
-ax[1].plot(vel)
-ax[2].plot(u)
+# ## Initialise and Use Kalman Filter
 
 # +
-import numpy.linalg as LA
+# %%time
 
-class KalmanFilter:
-    def __init__(self, state_transition, observation_model, process_cov, observation_cov, input_model=None, x0=None):
-        # Check matrix dimensions
-        if state_transition.shape[0] != state_transition.shape[1]:
-            raise ValueError(f"State transition matrix must be square, but received matrix of size {state_transition.shape}")
-        
-        self.F = state_transition
-        self.H = observation_model
-        self.Q = process_cov
-        self.R = observation_cov
-        self.n = self.F.shape[0]
-        
-        self.has_input = input_model is not None
-        if self.has_input:
-            self.B = input_model
-        
-        if x0:
-            self.xhat = x0
-        else:
-            self.xhat = np.zeros(self.n)
-            
-        # Initialise initial covariance to zero
-        self.P = np.zeros((self.n, self.n))
-        
-    
-    def __call__(self, measurement, u=None):
-        # Predict
-        if self.has_input:
-            self.xhat = self.F @ self.xhat + self.B @ u
-        else:
-            self.xhat = self.F @ self.xhat
-            
-        self.P = self.F @ self.P @ self.F.T + self.Q
-        
-        # Calculate Kalman Gain
-        innovation = self.H @ self.P @ self.H.T + self.R
-        K = self.P @ self.H.T @ LA.pinv(innovation)
-        
-        # Update estimate
-        self.xhat = self.xhat + K @ (measurement - self.H @ self.xhat)
-        
-        # Update covariance
-        self.P = (np.eye(self.n) - K @ self.H) @ self.P
-        
-        return self.xhat
+from KalmanFilter import KalmanFilter
 
-# +
-# Instantiate Kalman Filter
-F = np.eye(2) + Ts * A
-H = np.eye(2)
+# # Instantiate Kalman Filter
+H = np.eye(N)
 # Process Covariance
-Q = np.diag([0.1, 0.2]) * 0
+Q = 1e-2 * np.eye(N)
 # Observation Covariance
-R = np.diag([0.1, 0.2]) * 0
-Bd = Ts * B
-kf = KalmanFilter(F,H,Q,R,Bd)
+R = 1e2 * np.eye(N)
+
+kf = KalmanFilter.from_continuous(A,H,Q,R,Ts,B=B)
 
 estimate = np.zeros_like(y)
 for i in range(y.shape[1]):
@@ -130,16 +101,37 @@ for i in range(y.shape[1]):
 est_pos = estimate[0,:].T
 est_vel = estimate[1,:].T
 
-_,ax = plt.subplots(2, figsize=(24,16))
-ax[0].plot(y[0,:])
-ax[0].plot(estimate[0,:])
-ax[0].plot(y_true[0,:], '--')
-ax[0].grid()
+fig,ax = plt.subplots(N, figsize=(12,9))
+fig.tight_layout()
+for i in range(N):
+    ax[i].plot(t, y[i,:])
+    ax[i].plot(t, estimate[i,:])
+    ax[i].plot(t, y_true[i,:], '--')
+    ax[i].grid()
+# +
+# import cvxpy as cp
 
-ax[1].plot(y[1,:])
-ax[1].plot(estimate[1,:])
-ax[1].plot(y_true[1,:], '--')
-ax[1].grid()
+# N = y.shape[1]
+
+# X = cp.Variable((2,N))
+
+# # Constraints
+# constraint = [ ]
+
+# # Objective
+# obj = cp.Minimize(
+# cp.sum(
+#     cp.norm(
+#         A@X + B@u.reshape((1,-1)) - y
+#     )
+# ))
+
+# # Problem
+# prob = cp.Problem(obj, constraint)
+
+# prob.solve(solver='MOSEK')
+
+# print("status:", prob.status)
+# print("optimal value", prob.value)
 # -
-
 
