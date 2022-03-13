@@ -49,36 +49,25 @@ def ref_sine(t):
 
 # +
 Ts = 0.01
-N = 5
+N = 6
 
 # Generate random stable system
 A = np.random.rand(N,N)
 A = -A @ A.T
 B = np.random.rand(N,1)
 
-t, y_true, u_true = simulate_system(A, B, [0,20], ref_sine, Ts)
+t, y_true, u_true = simulate_system(A, B, [0,10], ref_sine, Ts)
 
 # Add noise
 y = y_true + np.random.randn(*y_true.shape) * (0.05 * np.random.rand(N,1) + 0.05)
 u = u_true + 0.1 * np.random.randn(*u_true.shape)
-
-
-# fig, ax = plt.subplots(N+1, figsize=(12,9))
-# fig.tight_layout()
-# for i in range(N):
-#     ax[i].plot(y[i,:])
-#     ax[i].grid()
-
-# ax[N].plot(u)
-# ax[N].grid()
 # -
 
 # ## Initialise and Use Kalman Filter
 
 # +
 # %%time
-
-from KalmanFilter import KalmanFilter
+from estimation.KalmanFilter import KalmanFilter
 
 # # Instantiate Kalman Filter
 H = np.eye(N)
@@ -101,37 +90,12 @@ for i in range(y.shape[1]):
 est_pos = estimate[0,:].T
 est_vel = estimate[1,:].T
 
-fig,ax = plt.subplots(N, figsize=(12,9))
+fig,axes = plt.subplots(2, N//2, figsize=(12,6), dpi=100)
 fig.tight_layout()
-for i in range(N):
-    ax[i].plot(t, y[i,:])
-    ax[i].plot(t, estimate[i,:])
-    ax[i].plot(t, y_true[i,:], '--')
-    ax[i].grid()
-# +
-# import cvxpy as cp
-
-# N = y.shape[1]
-
-# X = cp.Variable((2,N))
-
-# # Constraints
-# constraint = [ ]
-
-# # Objective
-# obj = cp.Minimize(
-# cp.sum(
-#     cp.norm(
-#         A@X + B@u.reshape((1,-1)) - y
-#     )
-# ))
-
-# # Problem
-# prob = cp.Problem(obj, constraint)
-
-# prob.solve(solver='MOSEK')
-
-# print("status:", prob.status)
-# print("optimal value", prob.value)
-# -
-
+for i,ax in enumerate(axes.flatten()):
+    ax.plot(t, y[i,:])
+    ax.plot(t, y_true[i,:], 'k--')
+    ax.plot(t, estimate[i,:])
+    ax.grid()
+    
+axes[0,2].legend(['measurement', 'true', 'estimate'], loc='upper right')
