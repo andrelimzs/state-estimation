@@ -99,3 +99,4 @@ for i,ax in enumerate(axes.flatten()):
     ax.grid()
     
 axes[0,2].legend(['measurement', 'true', 'estimate'], loc='upper right')
+_ = [ axes[1,i].set_xlabel('time (s)') for i in range(3) ]
