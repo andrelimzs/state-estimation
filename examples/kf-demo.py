@@ -13,12 +13,18 @@
 #     name: conda-env-control-systems-py
 # ---
 
+# +
+import sys
+sys.path.append("..")
+
 import numpy as np
 import numpy.linalg as LA
 from scipy.integrate import solve_ivp
 import matplotlib.pyplot as plt
 import control
 
+
+# -
 
 # ## Simulate random stable system
 
