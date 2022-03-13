@@ -6,6 +6,8 @@ A collection of common state estimation algorithms.
 
 *State estimation* is the process of estimating the internal state of a system, from (noisy/imperfect) measurements of the inputs and outputs.
 
+![overview](https://github.com/andrelimzs/state-estimation/blob/main/doc/plots/noisy_estimate.png?raw=true)
+
 ## Linear State Observer
 
 A state observer estimates the internal state of a system from a model of the system $(A,B,C)$, input $u$ and output $y$. It uses feedback to reconcile difference between the naive model prediction and output measurements.
