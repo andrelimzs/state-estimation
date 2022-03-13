@@ -1,5 +1,7 @@
 # state-estimation
 
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/andrelimzs/state-estimation/main?labpath=examples%2Fkf-demo.ipynb)
+
 A collection of common state estimation algorithms.
 
 *State estimation* is the process of estimating the internal state of a system, from (noisy/imperfect) measurements of the inputs and outputs.
