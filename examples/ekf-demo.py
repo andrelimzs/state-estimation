@@ -29,20 +29,37 @@ import control
 
 # -
 
-# ## Simulate random stable system
+# ## Simulate Nonlinear System
+#
+# Simulate a thrust-vectored drone
+# <center>
+# <img src="../doc/ekf/thrust-vector-diagram.png" alt="Diagram" style="width: 300px" />
+# </center>
+#
+# $
+# \left\{ \begin{aligned}
+# \dot{x}\  &= \ v_x \\
+# \dot v_x  &= \ \cos{(\theta + \alpha)}\ T \\
+# \dot{y}\  &= \ v_y \\
+# \dot v_y  &= \ \sin{(\theta + \alpha)}\ T \\
+# \dot{\theta}\ &= \ \omega \\
+# \dot{\omega}\ &= -\sin \alpha\ T
+# \end{aligned} \right.
+# $
+#
 
 # +
+# Form linear system x_dot = Ax + Bu
+def eqn(t,y,ref):
+    u = ref(t)
+    dydt = A@y + B@u
+    return dydt
+
 def simulate_system(A, B, t_span, ref, Ts, y0=None):
     N = A.shape[0]
     
     if y0 is None:
         y0 = np.zeros(N)
-        
-    # Form linear system x_dot = Ax + Bu
-    def eqn(t,y,ref):
-        u = ref(t)
-        dydt = A@y + B@u
-        return dydt
     
     # Set ODE parameters
     t_eval = np.arange(t_span[0], t_span[1], Ts)
