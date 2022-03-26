@@ -73,7 +73,7 @@ class KalmanFilter:
         
         """
         N = A.shape[0]
-        sys = control.StateSpace(A,B,C, np.zeros((N,1)) )
+        sys = control.StateSpace(A,B,C,0)
 
         sysd = control.sample_system(sys, Ts, method)
         A = sysd.A
