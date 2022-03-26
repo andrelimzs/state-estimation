@@ -58,28 +58,23 @@ def eqn(t,y,ref):
     """ Thrust vectored drone """
     # Unpack state
     theta = y[2]
-    vx = y[3]
-    vy = y[4]
-    omega = y[5]
+    omega = y[3]
     
     # Unpack control input
     u = ref(t)
     alpha = u[0]
-    T = [1]
-    gravity = 0
+    T = np.array([1])
     
-    dydt = np.zeros(6)
-    dydt[0] = vx + gravity
-    dydt[1] = vy
+    dydt = np.zeros(4)
+    dydt[0] = np.cos(theta + alpha) * T**2 #+ 0.2*np.random.rand()
+    dydt[1] = np.sin(theta + alpha) * T**2 #+ 0.2*np.random.rand()
     dydt[2] = omega
-    dydt[3] = np.cos(theta + alpha + 0.1*np.random.rand()) * T + 0.2*np.random.rand()
-    dydt[4] = np.sin(theta + alpha + 0.1*np.random.rand()) * T + 0.2*np.random.rand()
-    dydt[5] = -np.sin(alpha) * T
+    dydt[3] = -np.sin(alpha) * T
     
     return dydt
 
 def simulate_system(t_span, ref, Ts, y0=None):
-    y0 = np.zeros(6)
+    y0 = np.zeros(4)
     
     # Set ODE parameters
     t_eval = np.arange(t_span[0], t_span[1], Ts)
@@ -90,29 +85,29 @@ def simulate_system(t_span, ref, Ts, y0=None):
     return sol.t, sol.y, ref(sol.t)
 
 def ref_sine(t):
-    alpha = ( np.sin(t) - np.sin(3*t) ).reshape((-1))
+    alpha = 2*( np.sin(t) - np.sin(3*t) ).reshape((-1))
     ref = np.stack([ alpha, np.ones_like(alpha) ])
     return ref
 
 
 # +
-N = 6
-Ts = 1/400
+N = 4
+Ts = 1/100
 
 t, y_true, u_true = simulate_system([0,10], ref_sine, Ts)
 
 # Add noise
-y = y_true + np.random.randn(*y_true.shape) * np.array([0.5, 0.5, 0.1, 0.05, 0.05, 0.01]).reshape(-1,1)
+y = y_true + np.random.randn(*y_true.shape) * np.array([0.1, 0.1, 0.1, 0.01]).reshape(-1,1)
 u = u_true + 0 * np.random.randn(*u_true.shape)
 
 
 # + tags=[]
-def plot_system(t, y, y_true, estimate1=None, estimate2=None, dpi=None):
-    fig, axes = plt.subplots(2,3, figsize=(16,6), dpi=dpi)
+def plot_system(t, y, y_true, estimate1=None, estimate2=None, lgd=[], dpi=None):
+    fig, axes = plt.subplots(2,2, figsize=(16,8), dpi=dpi)
     ax = axes.flatten()
 
-    labels = ['x', 'y', r'$\theta$', 'vx', 'vy', r'$\omega$']
-    units  = ['m', 'm', 'rad', 'm/s', 'm/s', 'rad/s']
+    labels = ['vx', 'vy', r'$\theta$', r'$\omega$']
+    units  = ['m/s', 'm/s', 'rad', 'rad/s']
     for i,a in enumerate(ax):
         a.plot(t, y[i,:])
         a.plot(t, y_true[i,:], 'k--')
@@ -125,13 +120,13 @@ def plot_system(t, y, y_true, estimate1=None, estimate2=None, dpi=None):
         # a.set_title(labels[i])
         a.grid()
 
-    axes[0,0].legend(['measurement', 'true', 'estimate'], loc='upper left')
-    [ axes[1,i].set_xlabel('time (s)') for i in range(3) ]
+    axes[0,0].legend(['measurement', 'true'] + lgd, loc='upper left')
+    [ axes[1,i].set_xlabel('time (s)') for i in range(2) ]
 
     fig.tight_layout()
 
 def plot_control_input(u, u_true, dpi=None):
-    fig, axes = plt.subplots(1, 2, figsize=(12,3), dpi=dpi)
+    fig, axes = plt.subplots(1, 2, figsize=(16,4), dpi=dpi)
     ax = axes.T.flatten()
 
     for i,a in enumerate(ax):
@@ -156,36 +151,30 @@ from estimation.KalmanFilter import KalmanFilter
 from estimation.ExtendedKalmanFilter import ExtendedKalmanFilter
 
 # # Instantiate Kalman Filter
-A = np.array([[ 0,0,0, 1,0,0 ],
-              [ 0,0,0, 0,1,0 ],
-              [ 0,0,0, 0,0,1 ],
-              [ 0,0,0, 0,0,0 ],
-              [ 0,0,0, 0,0,0,],
-              [ 0,0,0, 0,0,0 ]])
-B = np.array([ [0,0], 
-               [0,0],
-               [0,0],
-               [0,1],
+A = np.array([[ 0,0, 0,0 ],
+              [ 0,0, 0,0 ],
+              [ 0,0, 0,1 ],
+              [ 0,0, 0,0 ]])
+B = np.array([ [0,1],
                [1,0],
+               [0,0], 
                [-1,0] ])
 
-H = np.diag([ 0,0,0,1,1,1 ])
+H = np.diag([ 1,1,1,1 ])
 # Process Covariance
-Q = 0.1 * np.diag([ 1,1,1,1,1,1 ])
+Q = 1 * np.diag([ 1,1,1,1 ])
 # Observation Covariance
-R = 1e2 * np.diag([ 1,1,1, 1,1,0.1 ])
+R = 10 * np.diag([ 10,10,10,1 ])
 
 
-def F(x,y,theta,vx,vy,omega,alpha,T):
+def F(vx,vy,theta,omega,alpha,T):
     alpha = 0
     T = 0
     # State is { x,y,theta, vx,vy,omega }
     dydt = []
-    dydt.append( vx )
-    dydt.append( vy )
+    dydt.append( np.cos(theta + alpha) * T**2 )
+    dydt.append( np.sin(theta + alpha) * T**2 )
     dydt.append( omega )
-    dydt.append( np.cos(theta + alpha) * T )
-    dydt.append( np.sin(theta + alpha) * T )
     dydt.append(-np.sin(alpha) * T )
     return np.stack(dydt)
 
@@ -202,7 +191,4 @@ for i in range(y.shape[1]):
     estimate_ekf[:,i] = ekf(measurement, control_input)
     # kf(measurement, control_input)
 
-plot_system(t, y, y_true, estimate_kf, estimate_ekf, dpi=300)
-# -
-
-
+plot_system(t, y, y_true, estimate_ekf, estimate_kf, ['EKF','KF'], dpi=300)
