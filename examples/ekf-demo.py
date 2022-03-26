@@ -39,10 +39,10 @@ import control
 # $
 # \left\{ \begin{aligned}
 # \dot{x}\  &= \ v_x \\
-# \dot v_x  &= \ \cos{(\theta + \alpha)}\ T \\
 # \dot{y}\  &= \ v_y \\
-# \dot v_y  &= \ \sin{(\theta + \alpha)}\ T \\
 # \dot{\theta}\ &= \ \omega \\
+# \dot v_x  &= \ \cos{(\theta + \alpha)}\ T \\
+# \dot v_y  &= \ \sin{(\theta + \alpha)}\ T \\
 # \dot{\omega}\ &= -\sin \alpha\ T
 # \end{aligned} \right.
 # $
@@ -51,15 +51,37 @@ import control
 # +
 # Form linear system x_dot = Ax + Bu
 def eqn(t,y,ref):
+    """ Thrust vectored drone """
+    # Unpack state
+    theta = y[2]
+    vx = y[3]
+    vy = y[4]
+    omega = y[5]
+    
+    # Unpack control input
     u = ref(t)
-    dydt = A@y + B@u
+    alpha = u
+    T = 1
+    gravity = -1
+    
+    dydt = np.zeros(6)
+    # dx = vx
+    dydt[0] = vx + gravity
+    # dy = vy
+    dydt[1] = vy
+    # dtheta = omega
+    dydt[2] = omega
+    # dvx = cos(theta + alpha) T
+    dydt[3] = np.cos(theta + alpha) * T
+    # dvy = sin(theta + alpha) T
+    dydt[4] = np.sin(theta + alpha) * T
+    # domega = -sin (alpha) T
+    dydt[5] = -np.sin(alpha) * T
+    
     return dydt
 
-def simulate_system(A, B, t_span, ref, Ts, y0=None):
-    N = A.shape[0]
-    
-    if y0 is None:
-        y0 = np.zeros(N)
+def simulate_system(t_span, ref, Ts, y0=None):
+    y0 = np.zeros(6)
     
     # Set ODE parameters
     t_eval = np.arange(t_span[0], t_span[1], Ts)
@@ -74,19 +96,35 @@ def ref_sine(t):
 
 
 # +
-Ts = 0.01
 N = 6
+Ts = 0.01
 
-# Generate random stable system
-A = np.random.rand(N,N)
-A = -A @ A.T
-B = np.random.rand(N,1)
-
-t, y_true, u_true = simulate_system(A, B, [0,10], ref_sine, Ts)
+t, y_true, u_true = simulate_system([0,10], ref_sine, Ts)
 
 # Add noise
-y = y_true + np.random.randn(*y_true.shape) * (0.05 * np.random.rand(N,1) + 0.05)
+y = y_true + np.random.randn(*y_true.shape) * np.array([0.5, 0.5, 0.1, 0.1, 0.01, 0.01]).reshape(-1,1)
 u = u_true + 0.1 * np.random.randn(*u_true.shape)
+
+# +
+fig, axes = plt.subplots(N//2, 2, figsize=(12,9), dpi=100)
+ax = axes.T.flatten()
+
+labels = ['x', 'y', r'$\theta$', 'vx', 'vy', r'$\omega$']
+units  = ['m', 'm', 'deg', 'm/s', 'm/s', 'deg/s']
+for i,a in enumerate(ax):
+    a.plot(t, y[i,:])
+    a.plot(t, y_true[i,:], 'k--')
+    # a.plot(t, estimate[i,:])
+    
+    a.set_ylabel(f'{labels[i]} ({units[i]})')
+    a.set_title(labels[i])
+    a.grid()
+    
+ax[0].legend(['measurement', 'true', 'estimate'], loc='upper left')
+ax[2].set_xlabel('time (s)')
+ax[5].set_xlabel('time (s)')
+
+fig.tight_layout()
 # -
 
 # ## Initialise and Use Kalman Filter
