@@ -1,12 +1,140 @@
 # state-estimation
 
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/andrelimzs/state-estimation/main?labpath=examples%2Fkf-demo.ipynb)
-
 A collection of common state estimation algorithms.
 
 *State estimation* is the process of estimating the internal state of a system, from (noisy/imperfect) measurements of the inputs and outputs.
 
+### Kalman Filter on random stable system
+
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/andrelimzs/state-estimation/main?labpath=examples%2Fkf-demo.ipynb)
+
+System dynamics are
+$$
+\dot x = A x + Bu
+$$
+
+
+for a negative semidefinite $A$ (such that the system is stable)
+
 ![overview](https://github.com/andrelimzs/state-estimation/blob/main/doc/plots/noisy_estimate.png?raw=true)
+
+### Extended Kalman Filter on Nonlinear Drone
+
+For the system
+$$
+\left\{ \begin{aligned}
+\dot{x}\  &= \ v_x \\
+\dot{y}\  &= \ v_y \\
+\dot{\theta}\ &= \ \omega \\
+\dot v_x  &= \ \cos{(\theta + \alpha)}\ T \\
+\dot v_y  &= \ \sin{(\theta + \alpha)}\ T \\
+\dot{\omega}\ &= -\sin \alpha\ T
+\end{aligned} \right.
+$$
+The estimates from a KF and EKF are
+
+![ekf](https://raw.githubusercontent.com/andrelimzs/state-estimation/main/doc/plots/ekf-nonlinear-system.png)
+
+
+
+## Kalman Filter
+
+### Notation
+
+- State, $x$
+- State transition model, $F$
+- Observation model, $H$
+- (Optional) Input model, $B$
+- Process covariance, $Q$
+- Observation covariance, $R$
+- Kalman Gain, $K_k$
+- A posteriori state estimate, $\hat x[k]$
+- A posteriori covariance estimate, $P[k]$
+
+$[k | k-1]$ notation means estimate at time $k$ given measurements at time $k-1$
+
+### System Model
+
+For the system
+$$
+\begin{aligned}
+x[k+1] &= F\ x[k] + w \\
+y[k] &= H\ x[k] + v
+\end{aligned}
+$$
+
+### Predict
+
+Predict the future state
+$$
+\hat x[k|k-1] = F \hat x[k-1] + Bu[k]
+$$
+
+And future covariance 
+$$
+P[k|k-1] = F\ P[k-1]\ F^T + Q
+$$
+
+### Update
+
+Calculate Kalman Gain
+$$
+K_k = P[k|k-1]\ H^T (H\ P[k|k-1]\ H^T + R)^{-1}
+$$
+
+
+Update estimate using feedback (via the Kalman gain and measurement $z$)
+$$
+\hat x[k] = \hat x[k|k-1] + K_k (z[k] - H \hat x'[k])
+$$
+And finally update covariance
+$$
+P[k|k] = (I - K_k H) P[k|k-1]
+$$
+
+And repeat
+
+
+
+## Extended Kalman Filter
+
+Exactly the same as the Kalman Filter, except for one additional step. Linearize the nonlinear system and observation dynamics at every time step.
+
+For the system
+$$
+\begin{aligned}
+x[k+1] &= f(x[k],\ u[k]) + w \\
+y[k] &= h(x[k]) + v
+\end{aligned}
+$$
+
+### Calculate Jacobian
+
+Calculate the Jacobian $J$ either
+
+1. Analytically
+
+$$
+J = \begin{bmatrix}
+\frac{\partial f_1}{\partial x_1} & \dots & \frac{\partial f_1}{\partial x_n} \\
+\vdots & \ddots & \vdots \\
+\frac{\partial f_m}{\partial x_1} & \dots & \frac{\partial f_m}{\partial x_n} \\
+\end{bmatrix}
+$$
+
+2. Automatic differentiation (AD)
+
+Autodiff algorithms use the chain rule on elementary operations to calculate the final jacobian. 
+
+This project uses autodiff (https://github.com/HIPS/autograd) to calculate the jacobian for any arbitrary state transition and observation model written as a numpy function.
+
+
+
+### Predict and Update
+
+Use the linearized $F$ and $H$ in the standard Kalman filter algorithm.
+
+
 
 ## Linear State Observer
 
@@ -42,39 +170,5 @@ Where $L$ can be designed using standard design methods such as pole placement o
 In discrete-time the equation becomes
 $$
 \hat{x}[k+1] = (A_d - LC)\ \hat{x}[k] + B_d\ u + Ly
-$$
-
-## Kalman Filter
-
-For
-$$
-x_{k+1} = f(x,y) + w \\
-y_k = h(x_k) + v
-$$
-
-### 1 Predict
-
-Predict
-$$
-\hat x_{k+1}' = \Phi \hat x_k + Bu
-$$
-
-$$
-P_{k+1} = \Phi P_k \Phi^T + Q
-$$
-
-### 2 Update
-
-Calculate Kalman Gain
-$$
-K_k = P_k' H^T (H P_k' H^T + R)^{-1}
-$$
-Update estimate
-$$
-\hat x_k = \hat x_k' + K_k (z_k - H \hat x_k')
-$$
-Update covariance
-$$
-P_k = (I - K_k H) P_k'
 $$
 
