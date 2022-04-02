@@ -20,6 +20,8 @@ for a negative semidefinite $A$ (such that the system is stable)
 
 ### Extended Kalman Filter on Nonlinear Drone
 
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/andrelimzs/state-estimation/HEAD?labpath=examples/ekf-demo.ipynb)
+
 For the system
 $$
 \left\{ \begin{aligned}
